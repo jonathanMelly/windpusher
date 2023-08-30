@@ -25,6 +25,8 @@ driver = webdriver.Chrome(options=options)
 try:
     for stationName in config:
         station = config[stationName]
+
+        print("Requesting "+station["src"])
         driver.get(station["src"])
         html = driver.page_source
         soup = BeautifulSoup(html, "html.parser")
