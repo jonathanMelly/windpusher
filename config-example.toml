@@ -1,0 +1,6 @@
+#Example : put real data and rename to config.toml
+[mystation]
+uid="bob"
+pwd="dylan"
+src="http://weather.com"
+target="http://www.windguru.cz/upload/api.php"
