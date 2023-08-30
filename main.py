@@ -58,7 +58,8 @@ try:
                      'hash': wgHash,
                      'wind_avg': wind,
                      'wind_max': windGust,
-                     'wind_direction': windDirection
+                     'wind_direction': windDirection,
+                     'interval': (60*15)
                      }
 
         # sending get request and saving the response as response object
