@@ -30,7 +30,7 @@ try:
         soup = BeautifulSoup(html, "html.parser")
 
         blockWarning = soup.find("div", {"id": "warning"})
-        if len(blockWarning.find()) > 0:
+        if len(blockWarning) > 0:
             print(stationName + " seems out of order, discarding update")
             continue
 
