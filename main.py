@@ -1,4 +1,3 @@
-import datetime
 import hashlib
 import os
 import time
@@ -23,52 +22,77 @@ driver = webdriver.Chrome(options=options)
 
 # Handles stations
 try:
+    numbersRe = re.compile(r"\d+")
+
     for stationName in config:
-        station = config[stationName]
+        try:
+            station = config[stationName]
 
-        print("Requesting "+station["src"])
-        driver.get(station["src"])
-        html = driver.page_source
-        soup = BeautifulSoup(html, "html.parser")
+            print("Requesting " + station["src"])
+            driver.get(station["src"])
+            html = driver.page_source
+            soup = BeautifulSoup(html, "html.parser")
 
-        blockWarning = soup.find("div", {"id": "warning"})
-        if len(blockWarning) > 0:
-            print(stationName + " seems out of order, discarding update")
-            continue
+            blockWarning = soup.find("div", {"id": "warning"})
+            if blockWarning is not None and blockWarning.text.strip() != "":
+                print(stationName + " seems out of order, discarding update")
+                continue
 
-        measureBlock = soup.find("div", {"id": "block-mesure"})
-        numbers = re.compile(r"\d+")
+            measureBlock = soup.find("div", {"id": "block-mesure"})
+            if measureBlock is None:
+                print("Missing measure block, skipping")
+                continue
 
-        wind = numbers.findall(measureBlock.find("div", {"id": "vent_vitesse"}).text).pop()
-        windGust = numbers.findall(measureBlock.find("div", {"id": "vent_rafale"}).text).pop()
-        windDirection = numbers.findall(measureBlock.find("div", {"id": "vent_direction"}).text).pop()
+            blocks = {"wind": "vent_vitesse",
+                      "windGust": "vent_rafale",
+                      "windDirection": "vent_direction"}
+            values = {}
+            for blockName, blockValue in blocks.items():
+                element = measureBlock.find("div", {"id": blockValue})
+                if element is None:
+                    print("missing block " + blockName+", skipping station")
+                    continue
+                else:
+                    value = numbersRe.findall(element.text)
+                    if len(value) > 0:
+                        values[blockName] = value.pop()
+                    else:
+                        print("no data for measure " + blockName + ", discarding station")
+                        continue
 
-        print("station:" + stationName + "\nwind:" + wind + "\ngust:", windGust + "\ndir:", windDirection)
+            wind = values["wind"]
+            windGust = values["windGust"]
+            windDirection = values["windDirection"]
 
-        apiUrl = station["target"]
+            print("station:" + stationName + "\nwind:" + wind + "\ngust:", windGust + "\ndir:", windDirection)
 
-        # location given here
-        salt = time.time()
-        uid = station["uid"]
-        password = station["pwd"]
+            apiUrl = station["target"]
 
-        wgHash = hashlib.md5((str(salt) + uid + password).encode()).hexdigest()
+            # location given here
+            salt = time.time()
+            uid = station["uid"]
+            password = station["pwd"]
 
-        # defining a params dict for the parameters to be sent to the API
-        apiParams = {'uid': uid,
-                     'salt': salt,
-                     'hash': wgHash,
-                     'wind_avg': wind,
-                     'wind_max': windGust,
-                     'wind_direction': windDirection,
-                     'interval': (60*15)
-                     }
+            wgHash = hashlib.md5((str(salt) + uid + password).encode()).hexdigest()
 
-        # sending get request and saving the response as response object
-        r = requests.get(url=apiUrl, params=apiParams)
-        print(r)
-        if os.getenv("DEBUG"):
-            print(dump.dump_all(r))
+            # defining a params dict for the parameters to be sent to the API
+            apiParams = {'uid': uid,
+                         'salt': salt,
+                         'hash': wgHash,
+                         'wind_avg': wind,
+                         'wind_max': windGust,
+                         'wind_direction': windDirection,
+                         'interval': (60 * 15)
+                         }
+
+            # sending get request and saving the response as response object
+            r = requests.get(url=apiUrl, params=apiParams)
+            print(r)
+            if os.getenv("DEBUG"):
+                print(dump.dump_all(r))
+
+        except Exception as error:
+            print("something went wrong:", error)
 
 finally:
     driver.close()
