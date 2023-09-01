@@ -11,9 +11,13 @@ from bs4 import BeautifulSoup
 
 from requests_toolbelt.utils import dump
 
+from dotenv import load_dotenv
+
 # load config file
 with open('config.toml', 'r') as f:
     config = toml.loads(f.read())
+
+load_dotenv()
 
 # Start browser
 options = Options()
@@ -22,7 +26,7 @@ driver = webdriver.Chrome(options=options)
 
 # Handles stations
 try:
-    numbersRe = re.compile(r"\d+")
+    numbersRe = re.compile(r"\d+(\.\d+)?")
 
     for stationName in config:
         try:
@@ -50,12 +54,12 @@ try:
             for blockName, blockValue in blocks.items():
                 element = measureBlock.find("div", {"id": blockValue})
                 if element is None:
-                    print("missing block " + blockName+", skipping station")
+                    print("missing block " + blockName + ", skipping station")
                     continue
                 else:
-                    value = numbersRe.findall(element.text)
-                    if len(value) > 0:
-                        values[blockName] = value.pop()
+                    value = numbersRe.search(element.text)
+                    if value is not None:
+                        values[blockName] = value.group()
                     else:
                         print("no data for measure " + blockName + ", discarding station")
                         continue
@@ -85,11 +89,14 @@ try:
                          'interval': (60 * 15)
                          }
 
-            # sending get request and saving the response as response object
-            r = requests.get(url=apiUrl, params=apiParams)
-            print(r)
-            if os.getenv("DEBUG"):
-                print(dump.dump_all(r))
+            if os.getenv("NO_PUSH") is None:
+                # sending get request and saving the response as response object
+                r = requests.get(url=apiUrl, params=apiParams)
+                print(r)
+                if os.getenv("DEBUG"):
+                    print(dump.dump_all(r))
+            else:
+                print("Skipping PUSH TO "+apiUrl)
 
         except Exception as error:
             print("something went wrong:", error)
