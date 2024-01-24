@@ -7,6 +7,7 @@ import toml
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.proxy import Proxy, ProxyType
 from bs4 import BeautifulSoup
 
 from requests_toolbelt.utils import dump
@@ -19,9 +20,19 @@ with open('config.toml', 'r') as f:
 
 load_dotenv()
 
+zyte = Proxy({
+    'proxyType': ProxyType.MANUAL,
+    'socksProxy': os.getenv("ZYTE_API_KEY")+':proxy.crawlera.com:8011',
+    'socksVersion': 5,
+})
+
 # Start browser
 options = Options()
 options.add_argument('--headless')
+#options.add_argument('ignore-certificate-errors')
+#options.add_argument('--ignore-ssl-errors')
+options.proxy = zyte
+
 driver = webdriver.Chrome(options=options)
 
 # Handles stations
