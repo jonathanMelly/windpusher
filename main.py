@@ -49,41 +49,34 @@ try:
 
             measureBlock = soup.find("div", {"id": "block-mesure"})
             if measureBlock is None:
-                print("Missing measure block, skipping")
+                print(f"Missing root measure block, skipping station {station}")
+                if os.getenv("DEBUG") is not None:
+                    body = soup.find("body")
+                    if body is not None:
+                        print(body.text.strip())
                 continue
 
-            blocks = {"wind": "vent_vitesse",
-                      "windGust": "vent_rafale",
-                      "windDirection": "vent_direction"}
+            # Keys are the one used for windguruz api
+            blocks = {"wind_avg": "vent_vitesse",
+                      "wind_max": "vent_rafale",
+                      "wind_direction": "vent_direction"}
             values = {}
 
-            missing=0
             for blockName, blockValue in blocks.items():
                 element = measureBlock.find("div", {"id": blockValue})
                 if element is None:
                     print("missing block " + blockName)
-                    missing = missing + 1
-                    continue
+                    values[blockName] = None
                 else:
                     value = numbersRe.search(element.text)
                     if value is not None:
                         values[blockName] = value.group()
                     else:
-                        print("no data for measure " + blockName)
-                        missing = missing + 1
-                        continue
+                        print("no usable data found for measure " + blockName + " in content [" + element.text +
+                              "] (value for this part won’t be uploaded)")
+                        values[blockName] = None
 
-            if missing > 0:
-                print(f"Missing {missing} blocks, discarding station")
-                if os.getenv("DEBUG") is not None:
-                    print(html)
-                continue
-
-            wind = values["wind"]
-            windGust = values["windGust"]
-            windDirection = values["windDirection"]
-
-            print("station:" + stationName + "\nwind:" + wind + "\ngust:", windGust + "\ndir:", windDirection)
+            print(f"station: {stationName} : {values}")
 
             apiUrl = station["target"]
 
@@ -98,11 +91,12 @@ try:
             apiParams = {'uid': uid,
                          'salt': salt,
                          'hash': wgHash,
-                         'wind_avg': wind,
-                         'wind_max': windGust,
-                         'wind_direction': windDirection,
                          'interval': (60 * 15)
                          }
+
+            for blockName, _ in blocks.items():
+                if values[blockName] is not None:
+                    apiParams[blockName] = values[blockName]
 
             if os.getenv("NO_PUSH") is None:
                 # sending get request and saving the response as response object
@@ -111,7 +105,7 @@ try:
                 if os.getenv("DEBUG"):
                     print(dump.dump_all(r))
             else:
-                print("Skipping PUSH TO "+apiUrl)
+                print("Skipping PUSH TO " + apiUrl)
 
         except Exception as error:
             print("something went wrong:", error)
