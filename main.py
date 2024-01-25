@@ -56,18 +56,28 @@ try:
                       "windGust": "vent_rafale",
                       "windDirection": "vent_direction"}
             values = {}
+
+            missing=0
             for blockName, blockValue in blocks.items():
                 element = measureBlock.find("div", {"id": blockValue})
                 if element is None:
-                    print("missing block " + blockName + ", skipping station")
+                    print("missing block " + blockName)
+                    missing = missing + 1
                     continue
                 else:
                     value = numbersRe.search(element.text)
                     if value is not None:
                         values[blockName] = value.group()
                     else:
-                        print("no data for measure " + blockName + ", discarding station")
+                        print("no data for measure " + blockName)
+                        missing = missing + 1
                         continue
+
+            if missing > 0:
+                print(f"Missing {missing} blocks, discarding station")
+                if os.getenv("DEBUG") is not None:
+                    print(html)
+                continue
 
             wind = values["wind"]
             windGust = values["windGust"]
