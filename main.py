@@ -5,6 +5,8 @@ import re
 import requests
 import toml
 
+from selenium.webdriver.chrome.options import Options
+from selenium import webdriver
 from bs4 import BeautifulSoup
 
 from requests_toolbelt.utils import dump
@@ -17,25 +19,15 @@ with open('config.toml', 'r') as f:
 
 load_dotenv()
 
+# Start browser
+options = Options()
+options.add_argument('--headless')
 
-def get(url):
-    api_response = requests.post(
-        "https://api.zyte.com/v1/extract",
-        auth=(os.getenv("ZYTE_API_KEY"), ""),
-        json={
-            "url": url,
-            # "httpResponseBody": True,
-            'browserHtml': True
-        },
-    )
-    if api_response.status_code != 200:
-        api_response.raise_for_status()
+proxy = os.getenv('PROXY')
+if proxy is not None:
+    options.add_argument(f'--proxy-server={proxy}')
 
-    # For responseBody
-    # http_response_body: bytes = b64decode(api_response.json()["httpResponseBody"])
-
-    return api_response.json()["browserHtml"]
-
+driver = webdriver.Chrome(options=options)
 
 # Handles stations
 try:
@@ -46,7 +38,8 @@ try:
             station = config[stationName]
 
             print("Requesting " + station["src"])
-            html = get(station["src"])
+            driver.get(station["src"])
+            html = driver.page_source
             soup = BeautifulSoup(html, "html.parser")
 
             blockWarning = soup.find("div", {"id": "warning"})
@@ -63,12 +56,10 @@ try:
                       "windGust": "vent_rafale",
                       "windDirection": "vent_direction"}
             values = {}
-            skip = False
             for blockName, blockValue in blocks.items():
                 element = measureBlock.find("div", {"id": blockValue})
                 if element is None:
                     print("missing block " + blockName + ", skipping station")
-                    skip = True
                     continue
                 else:
                     value = numbersRe.search(element.text)
@@ -76,11 +67,7 @@ try:
                         values[blockName] = value.group()
                     else:
                         print("no data for measure " + blockName + ", discarding station")
-                        skip = True
                         continue
-
-            if skip is True:
-                continue
 
             wind = values["wind"]
             windGust = values["windGust"]
@@ -114,10 +101,10 @@ try:
                 if os.getenv("DEBUG"):
                     print(dump.dump_all(r))
             else:
-                print("Skipping PUSH TO " + apiUrl)
+                print("Skipping PUSH TO "+apiUrl)
 
         except Exception as error:
             print("something went wrong:", error)
 
 finally:
-    pass
+    driver.close()
