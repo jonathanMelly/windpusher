@@ -19,6 +19,9 @@ with open('config.toml', 'r') as f:
 
 load_dotenv()
 
+if os.getenv("DEBUG") is not None:
+    print("DEBUG MODE ON")
+
 # Start browser
 options = Options()
 options.add_argument('--headless')
@@ -51,9 +54,7 @@ try:
             if measureBlock is None:
                 print(f"Missing root measure block, skipping station {station}")
                 if os.getenv("DEBUG") is not None:
-                    body = soup.find("body")
-                    if body is not None:
-                        print(body.text.strip())
+                    print(f"html:{html}")
                 continue
 
             # Keys are the one used for windguruz api
